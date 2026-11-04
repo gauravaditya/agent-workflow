@@ -1,35 +1,47 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { ApiExample } from './api-example';
 
-describe('foundation exchange', () => {
+describe('foundation exchange API', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('presents the Go response', async () => {
+  it('receives the Go response', () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
+    let message = '';
+    TestBed.inject(ApiExample)
+      .read()
+      .subscribe((response) => {
+        message = response.message;
+      });
     const request = TestBed.inject(HttpTestingController).expectOne('/api/example');
     expect(request.request.method).toBe('GET');
     request.flush({ message: 'Connected to Go.' });
-    await fixture.whenStable();
-    expect(fixture.nativeElement.textContent).toContain('Connected to Go.');
+    expect(message).toBe('Connected to Go.');
   });
 
-  it('shows exchange failure without pretending it succeeded', async () => {
+  it('reports exchange failure without pretending it succeeded', () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
+    let succeeded = false;
+    let failed = false;
+    TestBed.inject(ApiExample)
+      .read()
+      .subscribe({
+        next: () => {
+          succeeded = true;
+        },
+        error: () => {
+          failed = true;
+        },
+      });
     TestBed.inject(HttpTestingController)
       .expectOne('/api/example')
       .flush({ error: 'not available' }, { status: 503, statusText: 'Unavailable' });
-    await fixture.whenStable();
-    expect(fixture.nativeElement.textContent).toContain('Connection unavailable.');
-    expect(fixture.nativeElement.textContent).not.toContain('Connected to Go.');
+    expect(failed).toBe(true);
+    expect(succeeded).toBe(false);
   });
 });

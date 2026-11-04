@@ -1,22 +1,41 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of } from 'rxjs';
-import { ApiExample } from './api-example';
+import { DocumentChoice } from './document-choice';
+import {
+  DocumentSelection,
+  WorkspaceDocument,
+  WorkspaceRequirement,
+  WorkspaceTask,
+} from './workspace';
+import { WorkspaceApi } from './workspace-api';
 
 @Component({
-  imports: [],
+  imports: [DocumentChoice],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
 })
 export class App {
-  protected readonly message = toSignal(
-    inject(ApiExample)
+  protected readonly state = toSignal(
+    inject(WorkspaceApi)
       .read()
       .pipe(
-        map((response) => response.message),
-        catchError(() => of('Connection unavailable.')),
+        map((response) => ({ workspace: response.workspace, loaded: true, error: false })),
+        catchError(() => of({ workspace: null, loaded: true, error: true })),
       ),
-    { initialValue: 'Connecting…' },
+    { initialValue: { workspace: null, loaded: false, error: false } },
   );
+  protected readonly navigationOpen = signal(true);
+  protected readonly selected = signal<DocumentSelection | null>(null);
+
+  protected select(
+    document: WorkspaceDocument,
+    requirement: WorkspaceRequirement | null = null,
+    task: WorkspaceTask | null = null,
+  ) {
+    if (document.readable) {
+      this.selected.set({ document, requirement, task });
+    }
+  }
 }
