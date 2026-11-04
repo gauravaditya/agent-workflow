@@ -2,7 +2,7 @@
 
 Requirement: [REQ-003 — Self-contained application delivery](../../req.md)
 
-Review state: Draft task brief for human review. Implementation has not begun.
+Review state: Completed and explicitly accepted by the human following implementation and acceptance closure review. Verification history is recorded in the implementation brief.
 
 ## Purpose
 
