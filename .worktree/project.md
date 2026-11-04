@@ -8,7 +8,19 @@ Markdown files are the source of truth. Work follows the Project → Requirement
 
 The agreed application direction is a Go backend using the standard-library HTTP server, an Angular frontend using TypeScript and SCSS, and an HTTP/JSON API. An optimized Angular production build uses minification, tree-shaking, asset optimization, and lazy loading where appropriate. Embed the built frontend assets into the Go executable.
 
-Deliver one self-contained executable per supported OS/architecture. Standalone runtime requires only the operating system and a browser, with no separately installed Go, Node.js, Angular CLI, or frontend server. There is no database, external service, microservice architecture, or mandatory additional runtime dependency. Optional Docker distribution uses the same application rather than a separate architecture. Supported targets and first-delivery Docker inclusion remain to be agreed.
+Deliver one self-contained executable per supported OS/architecture. Standalone runtime requires only the operating system and a browser, with no separately installed Go, Node.js, Angular CLI, or frontend server. There is no database, external service, microservice architecture, or mandatory additional runtime dependency. Docker remains optional and is excluded from initial V1 delivery; no Docker packaging work is included. Any future Docker distribution would use the same application rather than a separate architecture.
+
+The approved initial V1 qualification targets are:
+
+| Operating system | Architecture |
+| --- | --- |
+| Linux | amd64 |
+| Linux | arm64 |
+| macOS | amd64 |
+| macOS | arm64 |
+| Windows | amd64 |
+
+Qualify Google Chrome current stable and Mozilla Firefox current stable on the applicable targets. Record the actual browser version and qualification date when testing. These are initial V1 qualification targets, not indefinite browser-version support or claims that qualification has already passed.
 
 These are agreed planning decisions, not claims that an application has been implemented. [REQ-003](requirements/REQ-003/req.md) covers the foundation and distribution work.
 

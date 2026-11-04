@@ -4,7 +4,7 @@ Requirement: [REQ-003 — Self-contained application delivery](../../req.md)
 
 Task: [TASK-008 — Establish the executable application foundation](task.md)
 
-Review state: Draft implementation brief for human review. Implementation requires explicit human approval.
+Review state: Completed and explicitly accepted by the human following implementation and acceptance closure review. The approved implementation instructions below are preserved; the acceptance record documents their verification.
 
 ## Objective
 
@@ -76,6 +76,18 @@ From a clean checkout, follow the documented dependency installation and build c
 Run the built executable in an isolated directory without the frontend build output available. Verify the entry document and all required production assets are served from the binary. In a browser, block external network access while allowing loopback and confirm UI loading and the minimal JSON exchange still succeed. Inspect requests for external asset dependencies. Do not treat a development-server result as embedded-executable verification.
 
 Record commands, results, actual environment tested, and unmet criteria. Check workspace source files for unintended changes. Clearly distinguish foundation verification from TASK-009's target qualification and later REQ-002 end-to-end checks. No test framework or infrastructure beyond what the approved foundation needs is prescribed here.
+
+### Acceptance record
+
+The human explicitly accepted TASK-008 on 2026-10-31 after the implementation and acceptance closure reviews. All eight acceptance criteria were assessed as verified for the tested environment; lazy loading was not applicable to the single foundation page. Implementation commit: `98a88135e3b30ba5164940eb55962c019f8d05b1`.
+
+The initial Git-backed reproducibility gap was subsequently resolved. [go.mod](../../../../../go.mod), [frontend/package.json](../../../../../frontend/package.json), and [frontend/package-lock.json](../../../../../frontend/package-lock.json) are committed at that revision and matched their working copies byte-for-byte.
+
+The closure review reused a clean Git checkout at that revision, removed only generated dependencies/caches/build outputs, and reran `make install` using npm's offline cache, `make test`, and `make build`; all passed. An additional uncached `go test -race -count=1 ./...` passed with 20 reported tests. All tracked-file hashes, including manifests and lockfile, remained unchanged and Git status was clean afterward. The Angular suite passed both tests and `go vet` passed. Fresh-Go-cache build and race-test checks also passed without an available external C compiler.
+
+Historical runtime verification, distinct from the closure reruns, confirmed isolated embedded-asset serving with the original build directory unavailable, actual `127.0.0.1:8080` binding, bind-failure reporting, SIGTERM/listener release, and Chrome rendering the JSON response with non-loopback traffic blocked. Source workspace and planning files were unchanged by implementation and verification.
+
+The tested environment was macOS arm64 with Go 1.26.5, Node.js 24.21.0, npm 11.19.0, GNU Make 3.81, and Chrome 156.0.8078.79. This is foundation acceptance, not supported-platform qualification or TASK-009 authorization. No REQ-002 product functionality or TASK-009 implementation has begun.
 
 ## Open questions
 
