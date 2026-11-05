@@ -10,11 +10,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"worktree/internal/workspace"
 )
 
-// Handler serves only embedded assets and the foundation's minimal JSON example.
-// No request path is ever resolved against the host filesystem.
-func Handler(assets fs.FS) http.Handler {
+// Handler keeps embedded assets separate from startup-discovered workspace
+// metadata. No HTTP request supplies an arbitrary host filesystem path.
+func Handler(assets fs.FS, tree *workspace.Snapshot) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if !safePath(r.URL.Path) {
@@ -22,7 +24,7 @@ func Handler(assets fs.FS) http.Handler {
 			return
 		}
 		if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
-			serveAPI(w, r)
+			serveAPI(w, r, tree)
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -50,14 +52,24 @@ func Handler(assets fs.FS) http.Handler {
 	})
 }
 
-func serveAPI(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/api/example" {
+func serveAPI(w http.ResponseWriter, r *http.Request, tree *workspace.Snapshot) {
+	if r.URL.Path != "/api/example" && r.URL.Path != "/api/workspace" {
 		writeJSON(w, http.StatusNotFound, "error", "not found")
 		return
 	}
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", "GET")
 		writeJSON(w, http.StatusMethodNotAllowed, "error", "method not allowed")
+		return
+	}
+	if r.URL.Path == "/api/workspace" {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		// This fixed metadata structure contains only JSON-encodable values.
+		data, _ := json.Marshal(struct {
+			Workspace *workspace.Snapshot `json:"workspace"`
+		}{tree})
+		_, _ = w.Write(append(data, '\n'))
 		return
 	}
 	writeJSON(w, http.StatusOK, "message", "Connected to Go.")

@@ -1,6 +1,6 @@
 # REQ-002 — Core workspace browsing and document reading
 
-Review state: Draft prepared with human authorization using TASK-004 through TASK-006. The requirement and task briefs await human review; no implementation briefs or application implementation have been prepared.
+Review state: TASK-004 — Open a local workspace and browse its hierarchy is complete and explicitly accepted by the human on 2026-11-01 following implementation review. Its implementation report and verification evidence are preserved in the existing review history. REQ-002 remains incomplete; TASK-005 and TASK-006 acceptance states are unchanged.
 
 ## Intent
 

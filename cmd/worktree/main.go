@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -10,6 +12,7 @@ import (
 
 	"worktree/frontend"
 	"worktree/internal/server"
+	"worktree/internal/workspace"
 )
 
 func main() {
@@ -20,10 +23,9 @@ func main() {
 }
 
 func run() error {
-	// Workspace arguments and their UI belong to TASK-004. Reject rather than
-	// silently pretend that a workspace was opened by this foundation.
-	if len(os.Args) != 1 {
-		return fmt.Errorf("workspace arguments are not implemented in this foundation")
+	tree, err := workspaceFromArgs(os.Args[1:])
+	if err != nil {
+		return err
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:8080")
 	if err != nil {
@@ -32,5 +34,27 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	fmt.Fprintf(os.Stdout, "Worktree listening at http://%s\n", listener.Addr())
-	return server.Serve(ctx, listener, server.Handler(frontend.Assets()))
+	return server.Serve(ctx, listener, server.Handler(frontend.Assets(), tree))
+}
+
+// All CLI and root-access checks finish before acquiring the HTTP listener.
+func workspaceFromArgs(args []string) (*workspace.Snapshot, error) {
+	flags := flag.NewFlagSet("worktree", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	directory := flags.String("workspace", "", "path to the project directory")
+	if err := flags.Parse(args); err != nil {
+		return nil, fmt.Errorf("%w; usage: worktree --workspace /path/to/project", err)
+	}
+	if flags.NArg() != 0 {
+		return nil, fmt.Errorf("unexpected positional arguments; use --workspace /path/to/project")
+	}
+	provided := false
+	flags.Visit(func(f *flag.Flag) { provided = provided || f.Name == "workspace" })
+	if !provided {
+		return nil, nil
+	}
+	if *directory == "" {
+		return nil, fmt.Errorf("--workspace must name a project directory; usage: worktree --workspace /path/to/project")
+	}
+	return workspace.Open(*directory)
 }

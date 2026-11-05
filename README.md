@@ -1,10 +1,10 @@
 # Worktree application foundation
 
-This implements TASK-008's Go/Angular foundation and TASK-009's standalone
-packaging. The foundation page demonstrates Angular communicating with Go.
-Workspace opening, the no-argument welcome screen, browsing, reading,
-validation issues and task navigation belong to REQ-002 and are not implemented
-in this revision. Arguments, including `--workspace`, currently fail explicitly.
+Worktree uses the TASK-008 Go/Angular foundation and TASK-009 standalone
+packaging. TASK-004 adds CLI workspace opening, hierarchy browsing, document
+selection, and non-blocking validation issues. Document reading/rendering and
+contextual links (TASK-005), and previous/next navigation (TASK-006), are not
+implemented. Selecting a document currently shows its identity and context.
 
 ## Development tools
 
@@ -27,6 +27,18 @@ make build
 make test
 ./bin/worktree
 ```
+
+With no argument, the application shows welcome instructions. To browse a
+project, use:
+
+```sh
+./bin/worktree --workspace /path/to/project
+```
+
+An explicitly supplied missing, non-directory, or unreadable path prints an
+actionable error to stderr and exits nonzero before the HTTP server starts.
+It does not show the no-argument welcome. A readable folder with missing or
+malformed `.worktree/` artifacts still opens and reports issues.
 
 `make install` runs `npm ci`, preserving locked resolutions. `make build` first
 builds the optimized Angular production frontend and then builds the Go
@@ -62,7 +74,7 @@ are enabled by the Angular configuration.
 
 ## HTTP contract and routing
 
-The sole demonstration is `GET /api/example`, returning status 200,
+The retained foundation demonstration is `GET /api/example`, returning status 200,
 `Content-Type: application/json`, and:
 
 ```json
@@ -71,9 +83,36 @@ The sole demonstration is `GET /api/example`, returning status 200,
 
 API routes occupy `/api` and `/api/…`. Unknown routes return 404 with
 `{"error":"not found"}`; unsupported methods on the example return 405 with
-`{"error":"method not allowed"}` and `Allow: GET`. No API versioning,
-workspace contracts, or monitoring endpoints are added. API results are JSON,
+`{"error":"method not allowed"}` and `Allow: GET`. No API versioning or
+monitoring endpoints are added. API results are JSON,
 never the frontend entry document.
+
+`GET /api/workspace` returns status 200, `Content-Type: application/json`, and
+`Cache-Control: no-store`. Without a CLI workspace it returns
+`{"workspace":null}`. Otherwise `workspace` contains:
+
+- `name`, the project title or source-directory name when the title is absent.
+- `document`, the project artifact descriptor.
+- `requirements`, each with `id`, `title`, `document`, `tasks`, and `taskOrder`.
+- `issues`, a list of workspace-relative `path` and `message` pairs.
+
+Tasks contain `id`, `title`, and `documents`. Every document descriptor has
+`path`, `kind` (`project`, `requirement`, `task`, or `implementation`), `title`,
+`readable`, and `templateValid`. Source paths preserve the actual canonical
+directory identity. Readable documents remain selectable when template
+validation fails; unavailable documents are disabled. Requirements retain
+their Tasks-section link order in `taskOrder`; ambiguous/missing ordering
+returns `null`. Unlisted physical tasks remain browsable with issues, without
+assigning them an authoritative sequential position.
+
+Workspace metadata is discovered once at startup. Restart to rescan changed
+files. The API accepts no filesystem path from HTTP requests and returns no
+document body. Go uses a root-confined filesystem for discovery, so symlinks
+cannot escape the selected project. Workspace files are only read, never
+repaired or copied into permanent storage. Validation recognizes the canonical
+template headings, metadata, and inline relative Markdown links, excluding
+authoring comments and fenced examples; it is not a general Markdown renderer.
+Unsupported methods on `/api/workspace` return 405 JSON with `Allow: GET`.
 
 Only `/` and `/index.html` are frontend navigation entry points in this
 foundation. They accept GET/HEAD when HTML is acceptable (including an omitted
@@ -90,8 +129,14 @@ served with `X-Content-Type-Options: nosniff`.
 
 `make test` builds the production frontend, runs Go HTTP/lifecycle tests with
 the race detector, runs `go vet`, and runs Angular's Vitest tests. Socket tests
-need local loopback access. The frontend tests check the displayed exchange
-result and failure through its HTTP boundary.
+need local loopback access. The frontend tests cover the retained foundation
+API and workspace browsing, availability, selection and navigation-collapse state.
+
+TASK-004 tests use temporary workspaces, including read-only, incomplete,
+malformed, and inaccessible fixtures. They compare paths and bytes before and
+after discovery. Final end-to-end workspace delivery qualification still
+depends on accepted REQ-002 functionality, including reading and navigation;
+TASK-004 checks do not qualify those future features.
 
 ## Standalone packages
 
@@ -166,11 +211,12 @@ implemented. Use Ctrl-C to stop; port 8080 must be available. The host keeps
 TASK-008's loopback-only binding. Windows console shutdown and other target
 runtime differences require actual target testing, not just compilation.
 
-The planned V1 workspace command is
+The V1 workspace command is
 `./worktree --workspace /path/to/project` (Windows:
 `.\worktree.exe --workspace C:\path\to\project`), after naming the copied binary
-`worktree` or `worktree.exe`. Workspace arguments remain unsupported in this
-foundation-and-packaging revision; TASK-004 supplies workspace opening and browsing.
+`worktree` or `worktree.exe`. Without the argument, the current application
+shows the welcome screen. Workspace documents can be selected, but their
+contents are not rendered until TASK-005.
 
 ## Delivery qualification
 
