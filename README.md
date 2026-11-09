@@ -1,18 +1,17 @@
-# Worktree application foundation
+# Worktree
 
-Worktree uses the TASK-008 Go/Angular foundation and TASK-009 standalone
-packaging. TASK-004 adds CLI workspace opening, hierarchy browsing, document
-selection, and non-blocking validation issues. Document reading/rendering and
-contextual links (TASK-005), and previous/next navigation (TASK-006), are not
-implemented. Selecting a document currently shows its identity and context.
+Worktree is a local, read-only workspace browser. Open a project from the CLI,
+browse requirements and tasks in the Foldout interface, and read their Markdown
+documents with contextual links and previous/next task navigation. A single
+Go executable serves the embedded Angular frontend.
 
 ## Development tools
 
 Use Go **1.26.5**, Node.js **24.21.0** (`.nvmrc`), npm **11.19.0**, and Make
 (tested with GNU Make 3.81). Angular CLI and build/test dependencies are local to
 `frontend/` and resolved by `frontend/package-lock.json`. No global Angular CLI
-or additional Go modules are needed. There is no `go.sum` because there are no
-external Go module dependencies. Go's declared version is in `go.mod`.
+is needed. Go's version and module dependencies are recorded in `go.mod` and
+`go.sum`.
 These commands use a POSIX shell and GNU Make; on Windows use an environment
 providing those build tools, or the PowerShell commands below. End users do not
 need these development tools.
@@ -50,14 +49,14 @@ or SIGTERM. The host binds only to `127.0.0.1`; it has no network-binding flags.
 A busy port causes a startup error and nonzero exit rather than a readiness
 message. Shutdown allows active requests up to five seconds to drain, then
 closes remaining connections and reports an error. Five seconds bounds local
-termination while comfortably exceeding the small foundation exchange.
+termination for HTTP connections. The workspace reader stays open until active
+handlers finish.
 
 Only the executable and an OS/browser are needed at runtime. It serves its
 embedded entry document, scripts and styles; neither the source checkout nor
 the frontend output directory is read at runtime. No CDN, external fonts,
 database, Docker, Node.js, Go installation, or frontend server is required to
-run this foundation. This is not qualification of any supported platform list
-or of later workspace functionality.
+run Worktree. See Delivery qualification for the platforms actually exercised.
 
 For frontend iteration, run `./bin/worktree` in one terminal and:
 
@@ -68,9 +67,8 @@ npm start
 
 The optional development server binds to `127.0.0.1:4200` and proxies `/api` to
 the Go process. It is development-only. Rebuild the production executable with
-`make build` after changes. The single small foundation page needs no routing
-or artificial lazy-loaded features; production optimization and hashed output
-are enabled by the Angular configuration.
+`make build` after changes. Production optimization and hashed output are enabled by the
+Angular configuration.
 
 ## HTTP contract and routing
 
@@ -100,16 +98,17 @@ Tasks contain `id`, `title`, and `documents`. Every document descriptor has
 `path`, `kind` (`project`, `requirement`, `task`, or `implementation`), `title`,
 `readable`, and `templateValid`. Source paths preserve the actual canonical
 directory identity. Readable documents remain selectable when template
-validation fails; unavailable documents are disabled. Requirements retain
+validation fails. Direct selection reports availability without substituting
+another document. Requirements retain
 their Tasks-section link order in `taskOrder`; ambiguous/missing ordering
 returns `null`. Unlisted physical tasks remain browsable with issues, without
 assigning them an authoritative sequential position.
 
 Workspace metadata is discovered once at startup. Restart to rescan changed
-files. The API accepts no filesystem path from HTTP requests and returns no
-document body. Go uses a root-confined filesystem for discovery, so symlinks
-cannot escape the selected project. Workspace files are only read, never
-repaired or copied into permanent storage. Validation recognizes the canonical
+files. `GET /api/document?path=…` reads a workspace-relative Markdown path and
+returns the source or a typed availability error. Go confines discovery and
+document reads to the selected workspace, including symlink resolution.
+Workspace files are read-only. Validation recognizes the canonical
 template headings, metadata, and inline relative Markdown links, excluding
 authoring comments and fenced examples; it is not a general Markdown renderer.
 Unsupported methods on `/api/workspace` return 405 JSON with `Allow: GET`.
@@ -122,7 +121,7 @@ methods return 405. There is no blanket SPA fallback for arbitrary paths.
 
 Asset names are resolved only in the embedded filesystem. Invalid paths,
 traversal segments, backslashes, NULs, and residual percent escapes are rejected;
-no URL is translated to a host filesystem path. Actual asset content types are
+static asset URLs never address the host filesystem. Actual asset content types are
 served with `X-Content-Type-Options: nosniff`.
 
 ## Verification boundaries
@@ -130,13 +129,13 @@ served with `X-Content-Type-Options: nosniff`.
 `make test` builds the production frontend, runs Go HTTP/lifecycle tests with
 the race detector, runs `go vet`, and runs Angular's Vitest tests. Socket tests
 need local loopback access. The frontend tests cover the retained foundation
-API and workspace browsing, availability, selection and navigation-collapse state.
+API, workspace browsing, document availability, Markdown and link handling,
+reading-focus behavior, and previous/next navigation.
 
 TASK-004 tests use temporary workspaces, including read-only, incomplete,
 malformed, and inaccessible fixtures. They compare paths and bytes before and
-after discovery. Final end-to-end workspace delivery qualification still
-depends on accepted REQ-002 functionality, including reading and navigation;
-TASK-004 checks do not qualify those future features.
+after discovery. The integrated distribution checks also compare fixture
+paths and bytes after reading and navigation.
 
 ## Standalone packages
 
@@ -163,7 +162,7 @@ C toolchain and C runtime dependency; macOS still uses its operating-system
 libraries. `-trimpath` removes build-machine paths and `-buildvcs=false` avoids
 embedding checkout-specific Git state. These settings do not prove target
 execution or browser compatibility. Use the declared tools and committed
-`go.mod`, `frontend/package.json`, and `frontend/package-lock.json`; do not use
+`go.mod`, `go.sum`, `frontend/package.json`, and `frontend/package-lock.json`; do not use
 `npm install` to refresh dependency resolutions during a delivery build.
 
 For a Windows amd64 build from PowerShell without Make, with the same declared
@@ -214,9 +213,8 @@ runtime differences require actual target testing, not just compilation.
 The V1 workspace command is
 `./worktree --workspace /path/to/project` (Windows:
 `.\worktree.exe --workspace C:\path\to\project`), after naming the copied binary
-`worktree` or `worktree.exe`. Without the argument, the current application
-shows the welcome screen. Workspace documents can be selected, but their
-contents are not rendered until TASK-005.
+`worktree` or `worktree.exe`. Without the argument, Worktree shows the welcome
+screen.
 
 ## Delivery qualification
 
@@ -233,14 +231,13 @@ Allow loopback but block external network access, inspect actual browser
 requests, and verify scripts/styles/fonts load locally. An HTTP 200 for the
 entry document alone is insufficient browser evidence.
 
-After TASK-004, TASK-005, and TASK-006 are implemented and accepted, repeat
-qualification with disposable workspace fixtures, including missing and
-malformed artifacts. Compare file paths and byte contents before/after opening,
-discovery, validation, selection, reading, and navigation. Use read-only fixture
-permissions where supported and investigate attempted writes. Never use the
-real project workspace for destructive testing. Those checks are currently
-blocked and have not passed. TASK-009 has been explicitly accepted by the human;
-final workspace qualification remains pending.
+The integrated V1 build passed for all five targets. Only macOS arm64 passed
+native runtime qualification. Chrome passed the tested browser scenarios on
+a limited Stable rollout build. Firefox passed the functional scenarios, with
+keyboard activation and visible focus unverified. Disposable workspace paths
+and contents stayed unchanged through browsing, validation, reading, and
+navigation. See the [TASK-009 record](.worktree/requirements/REQ-003/tasks/TASK-009/implementation.md)
+for the acceptance scope and remaining coverage gaps.
 
 ### Build and verification record — 2026-10-31
 
@@ -269,10 +266,10 @@ successfully on SIGTERM. Its linked libraries are supplied by macOS; the Linux
 artifacts were identified as statically linked. No other target was executed.
 PowerShell build/run commands have not been tested on Windows.
 
-Browser validation is left to the user under the implementation instructions.
+In this historical run, browser validation was left to the user.
 An earlier headless check rendered the foundation exchange in installed Chrome
 156.0.8078.79 using an external-blocking proxy; it is not current-stable
 qualification. Firefox 158.0.1 automation did not establish a session, so no
 Firefox result is claimed. Browser-isolation setup failures were test-harness
-limitations; they did not lead to application changes. No browser qualification
-or final REQ-002 read-only/end-to-end result is claimed.
+limitations; they did not lead to application changes. This historical run
+preceded integrated REQ-002 qualification.

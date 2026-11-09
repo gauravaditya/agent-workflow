@@ -15,8 +15,9 @@ import (
 )
 
 // Handler keeps embedded assets separate from startup-discovered workspace
-// metadata. No HTTP request supplies an arbitrary host filesystem path.
-func Handler(assets fs.FS, tree *workspace.Snapshot) http.Handler {
+// metadata and the borrowed, root-confined document reader. The caller owns
+// the reader and closes it after Serve returns.
+func Handler(assets fs.FS, tree *workspace.Snapshot, reader *workspace.Reader) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if !safePath(r.URL.Path) {
@@ -24,7 +25,7 @@ func Handler(assets fs.FS, tree *workspace.Snapshot) http.Handler {
 			return
 		}
 		if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
-			serveAPI(w, r, tree)
+			serveAPI(w, r, tree, reader)
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -52,7 +53,11 @@ func Handler(assets fs.FS, tree *workspace.Snapshot) http.Handler {
 	})
 }
 
-func serveAPI(w http.ResponseWriter, r *http.Request, tree *workspace.Snapshot) {
+func serveAPI(w http.ResponseWriter, r *http.Request, tree *workspace.Snapshot, reader *workspace.Reader) {
+	if r.URL.Path == "/api/document" {
+		serveDocument(w, r, reader)
+		return
+	}
 	if r.URL.Path != "/api/example" && r.URL.Path != "/api/workspace" {
 		writeJSON(w, http.StatusNotFound, "error", "not found")
 		return

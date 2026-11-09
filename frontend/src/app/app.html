@@ -1,21 +1,42 @@
 <header class="app-header">
-  <h1>Worktree</h1>
+  @if (selected()) {
+    <button type="button" (click)="showRequirements()">
+      <span class="icon icon-back" aria-hidden="true"></span> All requirements
+    </button>
+  }
+  <h1 [class.workspace-wordmark]="selected()">Worktree</h1>
   @if (state().workspace; as workspace) {
     @if (workspace.issues.length) {
-      <p class="issue-indicator" role="status">
-        {{ workspace.issues.length }} workspace
-        {{ workspace.issues.length === 1 ? 'issue' : 'issues' }}
-      </p>
+      <details class="issues">
+        <summary>
+          {{ workspace.issues.length }} workspace
+          {{ workspace.issues.length === 1 ? 'issue' : 'issues' }}
+        </summary>
+        <ul>
+          @for (issue of workspace.issues; track $index) {
+            <li>
+              <code>{{ issue.path }}</code>
+              <p>{{ issue.message }}</p>
+            </li>
+          }
+        </ul>
+      </details>
     }
   }
-  @if (state().workspace) {
+  @if (selected()) {
     <button
       type="button"
       aria-controls="workspace-navigation"
       [attr.aria-expanded]="navigationOpen()"
-      (click)="navigationOpen.update((open) => !open)"
+      (click)="toggleNavigation()"
     >
-      {{ navigationOpen() ? 'Hide navigation' : 'Show navigation' }}
+      <span
+        class="icon"
+        [class.icon-focus]="navigationOpen()"
+        [class.icon-expand]="!navigationOpen()"
+        aria-hidden="true"
+      ></span>
+      {{ navigationOpen() ? 'Focus on reading' : 'Show requirements' }}
     </button>
   }
 </header>
@@ -28,109 +49,225 @@
     <p role="alert">Check that the Worktree server is running, then reload this page.</p>
   </main>
 } @else if (state().workspace; as workspace) {
-  <div class="workspace-layout" [class.navigation-hidden]="!navigationOpen()">
-    <aside id="workspace-navigation" [hidden]="!navigationOpen()">
-      <nav aria-label="Workspace hierarchy">
-        <app-document-choice
-          [document]="workspace.document"
-          [label]="workspace.name"
-          [selected]="selected()?.document?.path === workspace.document.path"
-          (pick)="select($event)"
-        />
-        <ul class="requirements">
+  @if (selected(); as selection) {
+    <div class="workspace-layout" [class.navigation-hidden]="!navigationOpen()">
+      <aside id="workspace-navigation">
+        <nav class="requirement-rail" aria-label="Requirements">
           @for (requirement of workspace.requirements; track requirement.document.path) {
-            <li>
-              <details open>
-                <summary>{{ requirement.title || requirement.id }}</summary>
-                <app-document-choice
-                  [document]="requirement.document"
-                  label="Requirement brief"
-                  [selected]="selected()?.document?.path === requirement.document.path"
-                  (pick)="select($event, requirement)"
-                />
-                <ul class="tasks">
-                  @for (task of requirement.tasks; track task.documents[0].path) {
+            <button
+              type="button"
+              [attr.data-document-path]="requirement.document.path"
+              [attr.aria-current]="selection.requirement === requirement ? 'page' : null"
+              [attr.aria-label]="requirement.title || requirement.id"
+              (click)="select(requirement.document, requirement)"
+            >
+              <strong>{{ requirement.id }}</strong>
+              @if (navigationTitle(requirement.id, requirement.title); as title) {
+                <span class="requirement-title">{{ title }}</span>
+              }
+            </button>
+          }
+          <button
+            type="button"
+            [attr.data-document-path]="workspace.document.path"
+            [attr.aria-current]="selection.document === workspace.document ? 'page' : null"
+            (click)="select(workspace.document)"
+          >
+            Project document
+          </button>
+        </nav>
+      </aside>
+      <div class="reading-surface">
+        @if (!navigationOpen() && selection.requirement; as requirement) {
+          <div class="requirement-ribbon">
+            <strong>{{ requirement.id }}</strong>
+            <span>{{ navigationTitle(requirement.id, requirement.title) }}</span>
+          </div>
+        }
+        @if (selection.requirement; as requirement) {
+          <nav class="task-strip" [attr.aria-label]="'Documents and tasks in ' + requirement.id">
+            <button
+              type="button"
+              [attr.aria-current]="selection.document === requirement.document ? 'page' : null"
+              (click)="select(requirement.document, requirement)"
+            >
+              Requirement
+            </button>
+            @for (task of requirement.tasks; track task.id) {
+              @for (document of task.documents; track document.path) {
+                @if (document.kind === 'task') {
+                  <button
+                    type="button"
+                    [attr.data-document-path]="document.path"
+                    [attr.aria-current]="selection.task === task ? 'page' : null"
+                    (click)="select(document, requirement, task)"
+                  >
+                    <strong>{{ task.id }}</strong>
+                    @if (navigationTitle(task.id, task.title); as title) {
+                      <span class="task-title">{{ title }}</span>
+                    }
+                  </button>
+                }
+              }
+            }
+          </nav>
+        }
+        <main #reading class="reading" aria-label="Document selection" tabindex="0">
+          <div class="reading-document">
+            @if (selection.document.kind === 'standalone') {
+              <div class="context">
+                <button
+                  type="button"
+                  class="ancestor"
+                  data-project-access
+                  title="Open project document"
+                  (click)="openAncestor(workspace.document)"
+                >
+                  {{ workspace.name }}
+                </button>
+                — standalone document
+              </div>
+            } @else {
+              <nav class="context" aria-label="Breadcrumbs">
+                <ol>
+                  @for (ancestor of breadcrumbs(); track ancestor.document.path) {
                     <li>
-                      <details>
-                        <summary>{{ task.title || task.id }}</summary>
-                        @for (document of task.documents; track document.path) {
-                          <app-document-choice
-                            [document]="document"
-                            [label]="
-                              document.kind === 'task' ? 'Task brief' : 'Implementation brief'
-                            "
-                            [selected]="selected()?.document?.path === document.path"
-                            (pick)="select($event, requirement, task)"
-                          />
-                        }
-                      </details>
+                      <button
+                        type="button"
+                        class="ancestor"
+                        [attr.data-breadcrumb]="ancestor.document.kind"
+                        [attr.aria-current]="
+                          selection.document.path === ancestor.document.path ? 'page' : null
+                        "
+                        [title]="ancestor.document.path"
+                        (click)="openAncestor(ancestor.document)"
+                      >
+                        {{ ancestor.label }}
+                      </button>
                     </li>
                   }
-                </ul>
-              </details>
-            </li>
-          }
-        </ul>
-      </nav>
-      @if (workspace.issues.length) {
-        <details class="issues">
-          <summary>
-            {{ workspace.issues.length }} workspace
-            {{ workspace.issues.length === 1 ? 'issue' : 'issues' }}
-          </summary>
-          <ul>
-            @for (issue of workspace.issues; track $index) {
-              <li>
-                <code>{{ issue.path }}</code>
-                <p>{{ issue.message }}</p>
-              </li>
+                </ol>
+              </nav>
             }
-          </ul>
-        </details>
-      }
-    </aside>
-
-    <main class="reading" aria-label="Document selection">
-      @if (selected(); as selection) {
-        <!-- Context only: ancestor-link navigation and reading belong to TASK-005. -->
-        <p class="context">
-          {{ workspace.name }}
-          @if (selection.requirement) {
-            / {{ selection.requirement.id }}
-          }
-          @if (selection.task) {
-            / {{ selection.task.id }}
-          }
-        </p>
-        <h2>
-          {{
-            selection.document.title ||
-              selection.task?.id ||
-              selection.requirement?.id ||
-              workspace.name
-          }}
-        </h2>
-        <p>
-          {{
-            selection.document.kind === 'implementation'
-              ? 'Implementation brief'
-              : selection.document.kind === 'task'
-                ? 'Task brief'
-                : selection.document.kind === 'requirement'
-                  ? 'Requirement brief'
-                  : 'Project'
-          }}
-        </p>
-        <code class="source-path">{{ selection.document.path }}</code>
-        <p class="reading-note">
-          Document reading will be available in the next step. Your selection is ready.
-        </p>
-      } @else {
-        <h2>Choose a document</h2>
-        <p>Select the project, a requirement, or a task document from the navigation.</p>
-      }
+            @if (selection.requirement; as requirement) {
+              @if (selection.task; as task) {
+                @if (
+                  selection.document.kind === 'task' || selection.document.kind === 'implementation'
+                ) {
+                  <div class="document-switcher" role="group" aria-label="Task document">
+                    @for (document of task.documents; track document.path) {
+                      <app-document-choice
+                        [document]="document"
+                        [label]="document.kind === 'task' ? 'Task brief' : 'Implementation brief'"
+                        [selected]="selection.document === document"
+                        (pick)="select($event, requirement, task)"
+                      />
+                    }
+                  </div>
+                }
+              }
+            }
+            <h2 class="document-identity">
+              {{
+                selection.document.title ||
+                  (selection.document.kind === 'standalone'
+                    ? selection.document.path
+                    : selection.task?.id || selection.requirement?.id || workspace.name)
+              }}
+            </h2>
+            <p>
+              {{
+                selection.document.kind === 'implementation'
+                  ? 'Implementation brief'
+                  : selection.document.kind === 'task'
+                    ? 'Task brief'
+                    : selection.document.kind === 'requirement'
+                      ? 'Requirement brief'
+                      : selection.document.kind === 'standalone'
+                        ? 'Standalone document'
+                        : 'Project'
+              }}
+            </p>
+            <code class="source-path">{{ selection.document.path }}</code>
+            <app-document-reader
+              class="reading-note"
+              [state]="reader()"
+              [fragment]="fragmentNavigation()"
+              (follow)="followDocument($event)"
+              (sectionMissing)="sectionMissing($event)"
+            />
+            @if (navigationMessage(); as message) {
+              <p role="status">{{ message }}</p>
+            }
+            @if (sequentialNavigation(); as navigation) {
+              <nav class="sequential-navigation" aria-label="Sequential task navigation">
+                @if (navigation.previous; as previous) {
+                  <button
+                    type="button"
+                    (click)="select(previous.document, navigation.requirement, previous.task)"
+                  >
+                    Previous: {{ previous.task.id }}
+                  </button>
+                }
+                @if (navigation.next; as next) {
+                  <button
+                    type="button"
+                    (click)="select(next.document, navigation.requirement, next.task)"
+                  >
+                    Next: {{ next.task.id }}
+                  </button>
+                }
+              </nav>
+            }
+          </div>
+        </main>
+      </div>
+    </div>
+  } @else {
+    <main class="requirement-index" aria-label="Requirement index">
+      <h2>{{ workspace.name }}</h2>
+      <button
+        type="button"
+        [attr.data-document-path]="workspace.document.path"
+        (click)="select(workspace.document)"
+      >
+        Project document
+      </button>
+      <h3>Requirements</h3>
+      <ul>
+        @for (requirement of workspace.requirements; track requirement.document.path) {
+          <li class="requirement-row">
+            <button
+              type="button"
+              [attr.data-document-path]="requirement.document.path"
+              (click)="select(requirement.document, requirement)"
+            >
+              {{ requirement.title || requirement.id }}
+            </button>
+            <ul class="index-tasks" [attr.aria-label]="'Tasks in ' + requirement.id">
+              @for (task of requirement.tasks; track task.id) {
+                @for (document of task.documents; track document.path) {
+                  @if (document.kind === 'task') {
+                    <li>
+                      <button
+                        type="button"
+                        [attr.data-document-path]="document.path"
+                        (click)="select(document, requirement, task)"
+                      >
+                        {{ task.title || task.id }}
+                      </button>
+                    </li>
+                  }
+                }
+              }
+            </ul>
+          </li>
+        } @empty {
+          <li>No requirements found.</li>
+        }
+      </ul>
     </main>
-  </div>
+  }
 } @else {
   <main class="welcome">
     <h2>Welcome to Worktree</h2>

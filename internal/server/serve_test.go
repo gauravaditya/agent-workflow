@@ -2,26 +2,29 @@ package server_test
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"worktree/internal/server"
 )
 
 func TestShutdownReportsDeadlineAndClosesBlockedConnection(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer listener.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	entered, release := make(chan struct{}), make(chan struct{})
-	defer close(release)
+	var releaseOnce sync.Once
+	releaseHandler := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseHandler()
 	finished := make(chan error, 1)
 	go func() {
 		finished <- server.Serve(ctx, listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +34,7 @@ func TestShutdownReportsDeadlineAndClosesBlockedConnection(t *testing.T) {
 	}()
 	requestDone := make(chan error, 1)
 	go func() {
-		client := &http.Client{Timeout: 8 * time.Second}
+		client := &http.Client{Timeout: 12 * time.Second}
 		response, err := client.Get("http://" + listener.Addr().String())
 		if err == nil {
 			response.Body.Close()
@@ -41,26 +44,28 @@ func TestShutdownReportsDeadlineAndClosesBlockedConnection(t *testing.T) {
 	select {
 	case <-entered:
 	case <-time.After(3 * time.Second):
-		t.Fatal("request did not start")
+		require.FailNow(t, "request did not start")
 	}
 	cancel()
-	// The production drain budget is five seconds; seven bounds this test while
-	// allowing scheduling overhead. The handler intentionally cannot finish.
-	select {
-	case err := <-finished:
-		if !errors.Is(err, context.DeadlineExceeded) {
-			t.Fatalf("expected shutdown deadline, got %v", err)
-		}
-	case <-time.After(7 * time.Second):
-		t.Fatal("shutdown exceeded its bound")
-	}
+	// The five-second budget still bounds connection shutdown. Returning from
+	// Serve must additionally wait for the application handler to exit.
 	select {
 	case err := <-requestDone:
-		if err == nil {
-			t.Fatal("blocked connection was not closed")
-		}
-	case <-time.After(time.Second):
-		t.Fatal("blocked connection survived shutdown")
+		require.Error(t, err, "blocked connection was not closed")
+	case <-time.After(7 * time.Second):
+		require.FailNow(t, "connection shutdown exceeded its bound")
+	}
+	select {
+	case <-finished:
+		require.FailNow(t, "Serve returned before its active handler exited")
+	case <-time.After(20 * time.Millisecond):
+	}
+	releaseHandler()
+	select {
+	case err := <-finished:
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(3 * time.Second):
+		require.FailNow(t, "Serve did not return after its handler exited")
 	}
 }
 

@@ -65,6 +65,16 @@ For each type and direction, check an existing readable conforming destination, 
 
 Runtime tests depend on the TASK-008 foundation and TASK-004/TASK-005 integration, with Go providing filesystem access. Verify ambiguous-order issues through TASK-004's lightweight file/problem reporting. Once remaining failed-selection behavior is decided, verify it through the owning issue/link behavior rather than implementing a separate policy. Report checks and results, unmet criteria, deviations, and unresolved details; do not claim untested integrations passed.
 
+### Final TASK-006 acceptance record — 2026-11-09
+
+The human reviewed and accepted TASK-006. Sequential navigation uses the requirement's authoritative `taskOrder` and the existing reader selection path. The selected brief type and requirement context are preserved.
+
+The acceptance follow-up added a regression for a middle task whose previous implementation brief is unreadable. Previous is hidden, and Next selects the immediate next task's implementation brief with exactly one document GET.
+
+- The focused document-reading suite passed all 82 tests.
+- `make test` passed with 333 Angular tests, Go race tests, and `go vet`. `make build` and `git diff --check` passed.
+- The existing stylesheet budget warning remains: `app.scss` is 6.57 kB against the 4.00 kB warning threshold.
+
 ## Open questions
 
 - TASK-008 must provide the agreed foundation for integration and tests. The application direction, Go ownership of filesystem access, and lightweight workspace issue presentation are decided; ordering must still never be guessed.

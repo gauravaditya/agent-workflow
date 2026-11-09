@@ -1,3 +1,5 @@
+import type { DocumentResponse } from './document-response';
+
 export interface WorkspaceDocument {
   path: string;
   kind: 'project' | 'requirement' | 'task' | 'implementation';
@@ -34,7 +36,15 @@ export interface WorkspaceResponse {
 }
 
 export interface DocumentSelection {
-  document: WorkspaceDocument;
+  document: WorkspaceDocument | { path: string; kind: 'standalone'; title: string };
   requirement: WorkspaceRequirement | null;
   task: WorkspaceTask | null;
 }
+
+// Associate results with a selection object, including repeated requests for
+// the same path. This is not another selection authority.
+export type DocumentReadState =
+  | { status: 'idle' }
+  | { status: 'loading'; selection: DocumentSelection }
+  | { status: 'received'; selection: DocumentSelection; response: DocumentResponse }
+  | { status: 'request-error'; selection: DocumentSelection; error: string };

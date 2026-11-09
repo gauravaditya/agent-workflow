@@ -11,7 +11,7 @@ import (
 )
 
 func TestJSONExchange(t *testing.T) {
-	handler := server.Handler(fstest.MapFS{}, nil)
+	handler := server.Handler(fstest.MapFS{}, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/example", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -52,7 +52,7 @@ func TestRoutesKeepAPIAssetsAndNavigationSeparate(t *testing.T) {
 			request := httptest.NewRequest(tc.method, tc.target, nil)
 			request.Header.Set("Accept", tc.accept)
 			response := httptest.NewRecorder()
-			server.Handler(assets, nil).ServeHTTP(response, request)
+			server.Handler(assets, nil, nil).ServeHTTP(response, request)
 			if response.Code != tc.status || !strings.Contains(response.Header().Get("Content-Type"), tc.contentType) || !strings.Contains(response.Body.String(), tc.body) {
 				t.Fatalf("got %d %v %q", response.Code, response.Header(), response.Body.String())
 			}

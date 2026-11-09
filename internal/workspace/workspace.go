@@ -2,6 +2,7 @@
 package workspace
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -48,24 +49,38 @@ type Issue struct {
 
 // Open checks the supplied directory before discovering its artifacts.
 func Open(directory string) (*Snapshot, error) {
+	tree, reader, err := OpenWithReader(directory)
+	if err != nil {
+		return nil, err
+	}
+	if err := reader.Close(); err != nil {
+		return nil, fmt.Errorf("close workspace: %w", err)
+	}
+	return tree, nil
+}
+
+// OpenWithReader performs the existing startup discovery and retains the same
+// confined root for request-time reads. The caller owns the returned Reader.
+func OpenWithReader(directory string) (*Snapshot, *Reader, error) {
 	info, err := os.Stat(directory)
 	if err != nil {
-		return nil, fmt.Errorf("cannot open workspace %q: %w; check the path and directory permissions", directory, err)
+		return nil, nil, fmt.Errorf("cannot open workspace %q: %w; check the path and directory permissions", directory, err)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("workspace %q is not a directory; supply a project folder with --workspace", directory)
+		return nil, nil, fmt.Errorf("workspace %q is not a directory; supply a project folder with --workspace", directory)
 	}
 	root, err := os.OpenRoot(directory)
 	if err != nil {
-		return nil, fmt.Errorf("cannot open workspace %q: %w; check directory permissions", directory, err)
+		return nil, nil, fmt.Errorf("cannot open workspace %q: %w; check directory permissions", directory, err)
 	}
-	defer root.Close()
 	if _, err := fs.ReadDir(root.FS(), "."); err != nil {
-		return nil, fmt.Errorf("cannot read workspace %q: %w; check read and search permissions", directory, err)
+		closeErr := root.Close()
+		return nil, nil, fmt.Errorf("cannot read workspace %q: %w; check read and search permissions", directory, errors.Join(err, closeErr))
 	}
 	absolute, err := filepath.Abs(directory)
 	if err != nil {
-		return nil, fmt.Errorf("resolve workspace %q: %w", directory, err)
+		closeErr := root.Close()
+		return nil, nil, fmt.Errorf("resolve workspace %q: %w", directory, errors.Join(err, closeErr))
 	}
-	return discover(root.FS(), filepath.Base(absolute)), nil
+	return discover(root.FS(), filepath.Base(absolute)), &Reader{root: root, rootPath: absolute}, nil
 }
