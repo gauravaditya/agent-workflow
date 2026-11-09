@@ -121,3 +121,21 @@ Runtime “Passed” above covers the observed foundation execution only. Pendin
 
 - Platform/browser targets and Docker exclusion are decided above. Availability of actual target and current-stable browser environments must be established during authorized verification; unavailable checks remain unverified.
 - Final end-to-end checks await implementation and acceptance of the relevant REQ-002 behavior, including resolution of remaining inaccessible-path/selection and non-HTTP/HTTPS outside-workspace interactions by their owning tasks.
+
+### Integrated qualification follow-up — 2026-11-09
+
+This follow-up supplements the integrated distribution run at `68a18553ed4384bee1807c0d8ba944b47376a1e5` plus the accepted REQ-002 working-tree changes. That run built all five targets and passed native macOS arm64 execution. Chrome passed functional and keyboard checks on the tested build. Firefox 159.0.1 passed functional checks using clicks. The evidence, including build hashes, remains under `/private/tmp/task009-final.GSFou5/`.
+
+- **Chrome version verified.** Google's macOS arm64 Stable release API listed the tested `158.0.8127.18` with a rollout fraction of `0.005` (0.5%) and `157.0.8103.39` with a full-rollout entry. The tested build was in a limited Stable rollout. The broadly served Stable build was not tested. [Google Version History API](https://versionhistory.googleapis.com/v1/chrome/platforms/mac_arm64/channels/stable/versions/all/releases?filter=endtime%3Dnone&order_by=version%20desc&page_size=10)
+- **Firefox keyboard and visible focus attempted, still unverified.** One headed attempt reused the existing harness and packaged binary. The live API and external-network denial controls passed. The harness timed out waiting for the Firefox document to gain foreground focus, before keyboard activation and visible focus could be checked.
+- **Native Linux amd64, Linux arm64, macOS amd64, and Windows amd64 execution remains unverified.** The host is Apple silicon, Lima listed no instances, and the local inventory surfaced no ready target environment. No additional smoke tests ran.
+
+New evidence is in `/private/tmp/task009-final.GSFou5/follow-up/`: `chrome-stable.json`, `chrome-api.log`, `firefox-headed.log`, and `runtime-feasibility.log`. Final end-to-end qualification remains partial and awaits review.
+
+### V1 integration acceptance — 2026-11-09
+
+The human accepted TASK-009 for V1 integration with the documented qualification limits. All five standalone builds passed. Native runtime qualification covers macOS arm64 only. Linux amd64, Linux arm64, macOS amd64, and Windows amd64 native execution remain unverified.
+
+The tested Chrome build, `158.0.8127.18`, was in a limited Stable rollout on macOS arm64. Firefox `159.0.1` passed the functional browser checks there. Firefox keyboard activation and visible focus remain unverified. The earlier implementation and qualification records retain the detailed evidence and limitations.
+
+GitHub Actions release automation is deferred to a separate PR after V1 integration.

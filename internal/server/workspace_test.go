@@ -15,7 +15,7 @@ import (
 
 func TestWorkspaceAPIWithoutArgumentReturnsWelcomeState(t *testing.T) {
 	response := httptest.NewRecorder()
-	server.Handler(fstest.MapFS{}, nil).ServeHTTP(response, httptest.NewRequest("GET", "/api/workspace", nil))
+	server.Handler(fstest.MapFS{}, nil, nil).ServeHTTP(response, httptest.NewRequest("GET", "/api/workspace", nil))
 	var body map[string]any
 	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestWorkspaceAPIServesIssuesWithoutReadingHostPathsFromRequests(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := server.Handler(fstest.MapFS{"index.html": {Data: []byte("<html>Embedded only</html>")}}, tree)
+	handler := server.Handler(fstest.MapFS{"index.html": {Data: []byte("<html>Embedded only</html>")}}, tree, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest("GET", "/api/workspace?path=/etc/passwd", nil))
 	var result struct {

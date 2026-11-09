@@ -9,53 +9,58 @@ import { WorkspaceDocument } from './workspace';
       min-width: 0;
     }
     button {
-      display: block;
-      width: 100%;
-      padding: 0.55rem 0.65rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.4rem 0.65rem;
       border: 0;
-      border-left: 3px solid transparent;
+      border-radius: 4px;
       background: transparent;
-      text-align: left;
-      color: inherit;
+      color: var(--nav-muted);
       font: inherit;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-align: start;
       overflow-wrap: anywhere;
       cursor: pointer;
     }
-    button:hover:not(:disabled) {
-      background: #e6ebe5;
+    button:hover {
+      color: var(--accent);
     }
-    button[aria-current] {
-      background: #e2e9e0;
-      border-left-color: #315447;
-      font-weight: 600;
+    button[aria-pressed='true'] {
+      background: var(--accent);
+      color: var(--paper);
+      font-weight: 650;
     }
     button:focus-visible {
-      outline: 2px solid #315447;
-      outline-offset: -2px;
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
-    button:disabled {
-      opacity: 0.55;
-      cursor: default;
+    .icon {
+      inline-size: 16px;
+      block-size: 16px;
+      flex: 0 0 16px;
+      background: currentColor;
+      mask: url('/icons/file-text.svg') center / contain no-repeat;
     }
-    small {
-      display: block;
-      font-weight: 400;
+    .icon.implementation {
+      mask-image: url('/icons/code-xml.svg');
     }
   `,
   template: `
     <button
       type="button"
-      [disabled]="!document().readable"
       [attr.data-document-path]="document().path"
-      [attr.aria-current]="selected() ? 'page' : null"
+      [attr.aria-pressed]="selected()"
       [title]="document().path"
       (click)="pick.emit(document())"
     >
+      <span
+        class="icon"
+        [class.implementation]="document().kind === 'implementation'"
+        aria-hidden="true"
+      ></span>
       {{ label() }}
-      @if (!document().readable) {
-        <small>Unavailable</small>
-      }
     </button>
   `,
 })
