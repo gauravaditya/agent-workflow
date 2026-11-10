@@ -216,6 +216,25 @@ The V1 workspace command is
 `worktree` or `worktree.exe`. Without the argument, Worktree shows the welcome
 screen.
 
+## GitHub releases
+
+For a build-only check, open **Actions → Worktree release → Run workflow**.
+Choose the ref to test and download the `worktree-dist` artifact when the run
+finishes. Manual runs never publish, including runs started against a tag.
+
+To publish, create and push a stable version tag such as `v1.0.0` on a commit
+already on `main` that contains the release workflow. A successful run attaches
+all five executables and `SHA256SUMS` to the GitHub Release for that tag.
+Ordinary branch pushes do not trigger the release workflow.
+
+Download the five executables and `SHA256SUMS` into the same directory, then
+verify the files with `sha256sum -c SHA256SUMS` on Linux or
+`shasum -a 256 -c SHA256SUMS` on macOS. On Linux and macOS, use `chmod +x` on
+the executable you downloaded before running it.
+
+If publication fails, check whether GitHub left a draft release before
+retrying. The workflow does not overwrite an existing release.
+
 ## Delivery qualification
 
 Qualification targets are Google Chrome current stable and Mozilla Firefox
